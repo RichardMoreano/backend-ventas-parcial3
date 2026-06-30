@@ -2,7 +2,7 @@ name: CI CD - Ventas
 
 on:
   push:
-    branches: [ main ]
+    branches: [ deploy ]
 
 permissions:
   contents: read
