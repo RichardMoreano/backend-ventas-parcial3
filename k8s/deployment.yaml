@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ventas-deployment
+  labels:
+    app: ventas
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ventas
+  template:
+    metadata:
+      labels:
+        app: ventas
+    spec:
+      containers:
+        - name: ventas
+          image: {{ECR_REPO}}:{{IMAGE_TAG}}
+          ports:
+            - containerPort: 8080
+          # Solicito recursos básicos: ajuste mínimo para pruebas y escalado.
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          env:
+            - name: DB_ENDPOINT
+              value: "{{RDS_ENDPOINT}}"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "despacho_db"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+          # Consejo: usa AWS Secrets Manager y crea el Secret en k8s desde ahi o usa IRSA.
