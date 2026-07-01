@@ -35,15 +35,22 @@ jobs:
           docker build -t $ECR:$IMAGE_TAG .
           docker push $ECR:$IMAGE_TAG
 
-      - name: Configure kubectl for EKS
-        uses: aws-actions/eks-update-kubeconfig@v2
-        with:
-          cluster-name: ${{ secrets.EKS_CLUSTER_NAME }}
-          region: ${{ secrets.AWS_REGION }}
+      - name: Configure kubectl for EKS (AWS CLI Oficial)
+        run: |
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
 
-      - name: Desplegar en EKS (actualizo la imagen)
+      - name: Desplegar DB y Arquitectura de Ventas en EKS
         env:
           ECR: ${{ secrets.ECR_REPO }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          kubectl set image deployment/ventas-deployment ventas=$ECR:${IMAGE_TAG} -n default || kubectl apply -f k8s/deployment.yaml
+          # 1. Desplegar los componentes de MySQL primero si existen en k8s/mysql
+          if [ -d "k8s/mysql" ]; then
+            kubectl apply -f k8s/mysql/
+          fi
+          
+          # 2. Modifica el tag de la imagen del microservicio de Ventas
+          sed -i "s|image:.*|image: ${ECR}:${IMAGE_TAG}|g" k8s/deployment.yaml
+          
+          # 3. Aplica todos los manifiestos del microservicio (Deployment, Service, HPA, Ingress)
+          kubectl apply -f k8s/
